@@ -9,6 +9,8 @@ contract FireVerseNFT is ERC721URIStorage, ERC2981, Ownable {
     uint256 private _tokenIds;
     uint96 public defaultFeeNumerator;
 
+    event MintFireVerseNFT(uint256 indexed tokenId, address indexed recipient, string tokenURI);
+
     constructor(string memory name_, string memory symbol_, uint96 feeNumerator_) ERC721(name_, symbol_) {
         defaultFeeNumerator = feeNumerator_;
     }
@@ -20,6 +22,8 @@ contract FireVerseNFT is ERC721URIStorage, ERC2981, Ownable {
         _mint(recipient, newTokenId);
         _setTokenURI(newTokenId, tokenURI_);
         _setTokenRoyalty(newTokenId, recipient, defaultFeeNumerator);
+
+        emit MintFireVerseNFT(newTokenId, recipient, tokenURI_);
     }
 
     function batchMint(address[] calldata recipients, string[] calldata tokenURIs) external onlyOwner {
@@ -33,6 +37,7 @@ contract FireVerseNFT is ERC721URIStorage, ERC2981, Ownable {
             _mint(recipients[i], newTokenId);
             _setTokenURI(newTokenId, tokenURIs[i]);
             _setTokenRoyalty(newTokenId, recipients[i], defaultFeeNumerator);
+            emit MintFireVerseNFT(newTokenId, recipients[i], tokenURIs[i]);
         }
     }
 
