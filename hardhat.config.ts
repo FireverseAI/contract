@@ -20,6 +20,7 @@ const namedAccounts = {
   deployer: {
     hardhat: 0,
     localhost: 0,
+    dev_bsc_test: 0,
     bsc_mainnet: ""
   },
   signer: {
