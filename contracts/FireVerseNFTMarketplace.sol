@@ -112,8 +112,8 @@ contract FireVerseNFTMarketplace is EIP712, Ownable, ReentrancyGuard {
         uint256 sellerAmount = order.price - royaltyAmount - platformFee;
 
         if (order.paymentToken == address(0)) {
-            // ETH
-            require(msg.value == order.price, "Incorrect ETH amount");
+            // Native Token
+            require(msg.value == order.price, "Incorrect Native Token amount");
             if (royaltyAmount > 0) payable(royaltyRecipient).sendValue(royaltyAmount);
             if (platformFee > 0) payable(platformFeeRecipient).sendValue(platformFee);
             payable(order.seller).sendValue(sellerAmount);

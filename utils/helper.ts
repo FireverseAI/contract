@@ -2,7 +2,7 @@ import { BigNumber, BigNumberish, ContractTransaction } from 'ethers'
 
 export const sendTxn = async (txnPromise: any, label: any) => {
   const txn = await txnPromise
-  console.info(`Sending ${label}...`)
+  console.info(`Sending ${label} ${txn.hash} ...`)
   await txn.wait()
   console.info(`... Sent! ${txn.hash}`)
   return txn

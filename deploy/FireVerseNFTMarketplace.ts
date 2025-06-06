@@ -1,9 +1,11 @@
 import { parseUnits } from 'ethers/lib/utils'
-import { getChainId } from 'hardhat'
+import { ethers, getChainId } from 'hardhat'
 import { DeployFunction } from 'hardhat-deploy/types'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { FireVerseNFT, FireVerseNFTMarketplace } from '../typechain'
+import { sendTxn } from '../utils/helper'
 
-const deployFunction: DeployFunction = async function ({ deployments, getNamedAccounts }: HardhatRuntimeEnvironment) {
+const deployFunction: DeployFunction = async function ({ deployments, getNamedAccounts, }: HardhatRuntimeEnvironment) {
   console.log('Running FireVerseNFTMarketplace deploy script')
   const { deploy } = deployments
 
@@ -20,11 +22,17 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
   })
 
   console.log('FireVerseNFTMarketplace deployed at ', address)
+
+
+  const nft = (await ethers.getContract('FireVerseNFT')) as FireVerseNFT
+  const market = (await ethers.getContract('FireVerseNFTMarketplace')) as FireVerseNFTMarketplace
+  await sendTxn(market.allowNFT(nft.address, true), "allowNFT")
+  await sendTxn(market.allowPaymentToken(ethers.constants.AddressZero, true), "allow payment native token ")
 }
 
 export default deployFunction
 
-deployFunction.dependencies = []
+deployFunction.dependencies = ['FireVerseNFT']
 
 // deployFunction.skip = async () => {
 //   return Promise.resolve(true)
