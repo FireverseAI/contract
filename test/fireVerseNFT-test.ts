@@ -33,12 +33,12 @@ describe('FireVerseNFT', async function () {
 
       snapshot = await takeSnapshot()
     })
-    // beforeEach(async () => {
-    //   await snapshot.restore()
-    // })
-    // after(async () => {
-    //   await snapshot.restore()
-    // })
+    beforeEach(async () => {
+      await snapshot.restore()
+    })
+    after(async () => {
+      await snapshot.restore()
+    })
 
     it('inits', async () => {
       expect(await fireVerseNFT.name()).equal('FireVerse NFT')
@@ -47,8 +47,7 @@ describe('FireVerseNFT', async function () {
 
     it('mint', async () => {
       const uri = 'http://example.com/1'
-      await expect(fireVerseNFT.connect(user0).mint(user0.address, uri)).revertedWith("Ownable: caller is not the owner")
-      await fireVerseNFT.connect(owner).mint(user0.address, uri)
+      await fireVerseNFT.connect(user0).mint(uri)
       expect(await fireVerseNFT.ownerOf(1)).equals(user0.address)
       expect(await fireVerseNFT.balanceOf(user0.address)).equal(1)
       expect(await fireVerseNFT.tokenURI(1)).equal(uri)
@@ -60,17 +59,17 @@ describe('FireVerseNFT', async function () {
       expect(await fireVerseNFT.defaultFeeNumerator()).equals(200)
     })
     it('batchMint', async () => {
-      const uri1 = 'http://example.com/2'
-      const uri2 = 'http://example.com/3'
-      await fireVerseNFT.connect(owner).batchMint([user0.address,user1.address], [uri1, uri2])
-      expect(await fireVerseNFT.ownerOf(2)).equals(user0.address)
+      await fireVerseNFT.connect(owner).setDefaultFeeNumerator(200)
+      const uri1 = 'http://example.com/1'
+      const uri2 = 'http://example.com/2'
+      await fireVerseNFT.connect(user0).batchMint([uri1, uri2])
       expect(await fireVerseNFT.balanceOf(user0.address)).equal(2)
-      expect(await fireVerseNFT.tokenURI(2)).equal(uri1)
-      expect(await fireVerseNFT.ownerOf(3)).equals(user1.address)
-      expect(await fireVerseNFT.balanceOf(user1.address)).equal(1)
-      expect(await fireVerseNFT.tokenURI(3)).equal(uri2)
+      expect(await fireVerseNFT.ownerOf(1)).equals(user0.address)
+      expect(await fireVerseNFT.tokenURI(1)).equal(uri1)
+      expect(await fireVerseNFT.ownerOf(2)).equals(user0.address)
+      expect(await fireVerseNFT.tokenURI(2)).equal(uri2)
+      expect(await fireVerseNFT.royaltyInfo(1, parseUnits('10'))).to.deep.equal([user0.address, parseUnits('0.2')])
       expect(await fireVerseNFT.royaltyInfo(2, parseUnits('10'))).to.deep.equal([user0.address, parseUnits('0.2')])
-      expect(await fireVerseNFT.royaltyInfo(3, parseUnits('10'))).to.deep.equal([user1.address, parseUnits('0.2')])
     })
 
     it('setTokenRoyalty', async () => {

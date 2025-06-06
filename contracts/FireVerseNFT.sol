@@ -15,29 +15,28 @@ contract FireVerseNFT is ERC721URIStorage, ERC2981, Ownable {
         defaultFeeNumerator = feeNumerator_;
     }
 
-    function mint(address recipient, string memory tokenURI_) external onlyOwner {
+    function mint(string memory tokenURI_) external {
         _tokenIds += 1;
         uint256 newTokenId = _tokenIds;
 
-        _mint(recipient, newTokenId);
+        _mint(msg.sender, newTokenId);
         _setTokenURI(newTokenId, tokenURI_);
-        _setTokenRoyalty(newTokenId, recipient, defaultFeeNumerator);
+        _setTokenRoyalty(newTokenId, msg.sender, defaultFeeNumerator);
 
-        emit MintFireVerseNFT(newTokenId, recipient, tokenURI_);
+        emit MintFireVerseNFT(newTokenId, msg.sender, tokenURI_);
     }
 
-    function batchMint(address[] calldata recipients, string[] calldata tokenURIs) external onlyOwner {
-        uint256 length = recipients.length;
-        require(tokenURIs.length == length, "FireVerseNFT: array length mismatch");
+    function batchMint(string[] calldata tokenURIs) external {
+        uint256 length = tokenURIs.length;
 
         for (uint256 i = 0; i < length; i++) {
             _tokenIds += 1;
             uint256 newTokenId = _tokenIds;
 
-            _mint(recipients[i], newTokenId);
+            _mint(msg.sender, newTokenId);
             _setTokenURI(newTokenId, tokenURIs[i]);
-            _setTokenRoyalty(newTokenId, recipients[i], defaultFeeNumerator);
-            emit MintFireVerseNFT(newTokenId, recipients[i], tokenURIs[i]);
+            _setTokenRoyalty(newTokenId, msg.sender, defaultFeeNumerator);
+            emit MintFireVerseNFT(newTokenId, msg.sender, tokenURIs[i]);
         }
     }
 
