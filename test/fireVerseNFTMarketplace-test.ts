@@ -108,7 +108,9 @@ describe('FireVerseNFTMarketplace', async function () {
       const beforeSellerBalance = await user0.getBalance()
 
       const beforePlatformFeeRecipientBalance = await owner.getBalance();;
-      await marketPlace.connect(user1).buy(order, signature, { value: order.price });
+      await expect(marketPlace.connect(user1).buy(order, signature, { value: order.price }))
+        .emit(marketPlace, "OrderExecuted").
+        withArgs(user1.address, order.seller, order.nft, order.tokenId, order.paymentToken, order.price, parseUnits('0.01'), parseUnits('0.01'));
 
       expect(await fireVerseNFT.ownerOf(1)).to.equal(user1.address);
       const afterSellerBalance = await user0.getBalance();

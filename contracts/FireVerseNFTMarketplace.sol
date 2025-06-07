@@ -45,8 +45,10 @@ contract FireVerseNFTMarketplace is EIP712, Ownable, ReentrancyGuard {
         address indexed seller,
         address indexed nft,
         uint256 tokenId,
+        address paymentToken,
         uint256 price,
-        address paymentToken
+        uint256 royaltyAmount,
+        uint256 platformFee
     );
     event OrderCancelled(address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 nonce);
     event NFTAllowed(address nft, bool allowed);
@@ -127,7 +129,16 @@ contract FireVerseNFTMarketplace is EIP712, Ownable, ReentrancyGuard {
 
         nft.safeTransferFrom(order.seller, msg.sender, order.tokenId);
 
-        emit OrderExecuted(msg.sender, order.seller, order.nft, order.tokenId, order.price, order.paymentToken);
+        emit OrderExecuted(
+            msg.sender,
+            order.seller,
+            order.nft,
+            order.tokenId,
+            order.paymentToken,
+            order.price,
+            royaltyAmount,
+            platformFee
+        );
     }
 
     function batchCancelOrder(
