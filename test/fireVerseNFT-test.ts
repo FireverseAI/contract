@@ -47,7 +47,7 @@ describe('FireVerseNFT', async function () {
 
     it('mint', async () => {
       const uri = 'http://example.com/1'
-      await fireVerseNFT.connect(user0).mint(uri)
+      await fireVerseNFT.connect(user0).mint(1, uri)
       expect(await fireVerseNFT.ownerOf(1)).equals(user0.address)
       expect(await fireVerseNFT.balanceOf(user0.address)).equal(1)
       expect(await fireVerseNFT.tokenURI(1)).equal(uri)
@@ -62,7 +62,7 @@ describe('FireVerseNFT', async function () {
       await fireVerseNFT.connect(owner).setDefaultFeeNumerator(200)
       const uri1 = 'http://example.com/1'
       const uri2 = 'http://example.com/2'
-      await fireVerseNFT.connect(user0).batchMint([uri1, uri2])
+      await fireVerseNFT.connect(user0).batchMint([1, 2], [uri1, uri2])
       expect(await fireVerseNFT.balanceOf(user0.address)).equal(2)
       expect(await fireVerseNFT.ownerOf(1)).equals(user0.address)
       expect(await fireVerseNFT.tokenURI(1)).equal(uri1)

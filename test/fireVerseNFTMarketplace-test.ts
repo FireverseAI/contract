@@ -97,7 +97,7 @@ describe('FireVerseNFTMarketplace', async function () {
     })
 
     it('buy user0 to user1 with native token', async () => {
-      await fireVerseNFT.connect(user0).mint(uri);
+      await fireVerseNFT.connect(user0).mint(1, uri);
       expect(await fireVerseNFT.ownerOf(1)).to.equal(user0.address);
 
       const order = await createOrder(user0, 1);
@@ -120,7 +120,7 @@ describe('FireVerseNFTMarketplace', async function () {
     });
 
     it('buy user0 to user1 with token', async () => {
-      await fireVerseNFT.connect(user0).mint(uri);
+      await fireVerseNFT.connect(user0).mint(1, uri);
       expect(await fireVerseNFT.ownerOf(1)).to.equal(user0.address);
 
       const order = await createOrder(user0, 1, '1', 0, testToken.address);
@@ -147,7 +147,7 @@ describe('FireVerseNFTMarketplace', async function () {
 
 
     it('token1 user0 -> user1 -> user2', async () => {
-      await fireVerseNFT.connect(user0).mint(uri);
+      await fireVerseNFT.connect(user0).mint(1, uri);
       await fireVerseNFT.connect(user0).setApprovalForAll(marketPlace.address, true);
 
       const order1 = await createOrder(user0, 1);
@@ -171,7 +171,7 @@ describe('FireVerseNFTMarketplace', async function () {
     });
 
     it('should reject cancelled orders', async () => {
-      await fireVerseNFT.connect(user0).mint(uri);
+      await fireVerseNFT.connect(user0).mint(1, uri);
       const order = await createOrder(user0, 1, '1', 0);
 
       await marketPlace.connect(user0).cancelOrder(fireVerseNFT.address, 1, 0);
@@ -186,7 +186,7 @@ describe('FireVerseNFTMarketplace', async function () {
     });
 
     it('should reject expiry order', async () => {
-      await fireVerseNFT.connect(user0).mint(uri);
+      await fireVerseNFT.connect(user0).mint(1, uri);
       const order = await createOrder(user0, 1, '1', 0);
 
       order.expiry -= 10000
