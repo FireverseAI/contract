@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
-contract FireVerseNFTMarketplace is EIP712, Ownable, ReentrancyGuard {
+contract FireVerseNFTMarketplace is EIP712, Ownable2Step, ReentrancyGuard {
     using ECDSA for bytes32;
     using SafeERC20 for IERC20;
     using Address for address payable;
@@ -70,7 +70,7 @@ contract FireVerseNFTMarketplace is EIP712, Ownable, ReentrancyGuard {
     }
 
     function setPlatformFee(address recipient, uint96 feeBps) external onlyOwner {
-        require(feeBps <= 10000, "Over 100%");
+        require(feeBps < 10000, "Over 100%");
         platformFeeRecipient = recipient;
         platformFeeBps = feeBps;
         emit PlatformFeeUpdated(recipient, feeBps);

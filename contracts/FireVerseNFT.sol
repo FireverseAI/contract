@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/token/common/ERC2981.sol";
 
-contract FireVerseNFT is ERC721URIStorage, ERC2981, Ownable {
+contract FireVerseNFT is ERC721URIStorage, ERC2981, Ownable2Step {
     uint96 public defaultFeeNumerator;
 
     event MintFireVerseNFT(uint256 indexed tokenId, address indexed recipient, string tokenURI);
