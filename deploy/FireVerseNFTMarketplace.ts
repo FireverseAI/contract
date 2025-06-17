@@ -24,17 +24,17 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
   console.log('FireVerseNFTMarketplace deployed at ', address)
 
 
-  const firToken = (await ethers.getContract('FIR')) as FIR
+  // const firToken = (await ethers.getContract('FIR')) as FIR
   const nft = (await ethers.getContract('FireVerseNFT')) as FireVerseNFT
   const market = (await ethers.getContract('FireVerseNFTMarketplace')) as FireVerseNFTMarketplace
   await sendTxn(market.allowNFT(nft.address, true), "allowNFT")
   await sendTxn(market.allowPaymentToken(ethers.constants.AddressZero, true), "allow payment native token ")
-  await sendTxn(market.allowPaymentToken(firToken.address, true), "allow payment FIR token ")
+  // await sendTxn(market.allowPaymentToken(firToken.address, true), "allow payment FIR token ")
 }
 
 export default deployFunction
 
-deployFunction.dependencies = ['FIR', 'FireVerseNFT']
+deployFunction.dependencies = ['FireVerseNFT']
 
 // deployFunction.skip = async () => {
 //   return Promise.resolve(true)

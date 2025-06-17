@@ -7,7 +7,7 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
   console.log('Running FIR deploy script')
   const { deploy } = deployments
 
-  const { deployer } = await getNamedAccounts()
+  const { deployer, tokenHolder } = await getNamedAccounts()
   console.log('Deployer:', deployer)
 
   const { address } = await deploy('FIR', {
@@ -16,7 +16,7 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
     deterministicDeployment: false,
     skipIfAlreadyDeployed: false,
     waitConfirmations: 5,
-    args: ['Fireverse', 'FIR', parseUnits('1000000000'), deployer],
+    args: ['Fireverse', 'FIR', parseUnits('1000000000'), tokenHolder],
   })
 
   console.log('FIR deployed at ', address)
@@ -26,8 +26,8 @@ export default deployFunction
 
 deployFunction.dependencies = []
 
-// deployFunction.skip = async () => {
-//   return Promise.resolve(true)
-// }
+deployFunction.skip = async () => {
+  return Promise.resolve(true)
+}
 
 deployFunction.tags = ['FIR']

@@ -23,6 +23,12 @@ const namedAccounts = {
     dev_bsc_test: 0,
     bsc_mainnet: ""
   },
+  tokenHolder: {
+    hardhat: 0,
+    localhost: 0,
+    dev_bsc_test: 0,
+    bsc_mainnet: ""
+  },
   signer: {
     default: 0,
   },
