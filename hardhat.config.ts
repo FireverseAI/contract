@@ -21,13 +21,19 @@ const namedAccounts = {
     hardhat: 0,
     localhost: 0,
     dev_bsc_test: 0,
-    bsc_mainnet: ""
+    bsc_mainnet: "0xD9CD543271aA4eFC6Ca684ab5A1C135b245467AD"
   },
   tokenHolder: {
     hardhat: 0,
     localhost: 0,
     dev_bsc_test: 0,
     bsc_mainnet: ""
+  },
+  ownership: {
+    hardhat: 0,
+    localhost: "0x4FB879f4d53b1F8FE0bA79f33b04f12cad6A164f",
+    dev_bsc_test: 0,
+    bsc_mainnet: "0x4FB879f4d53b1F8FE0bA79f33b04f12cad6A164f"
   },
   signer: {
     default: 0,

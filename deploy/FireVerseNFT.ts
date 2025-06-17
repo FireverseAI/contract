@@ -1,14 +1,17 @@
 import { parseUnits } from 'ethers/lib/utils'
-import { getChainId } from 'hardhat'
+import { ethers, getChainId } from 'hardhat'
 import { DeployFunction } from 'hardhat-deploy/types'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
+import { FireVerseNFT } from '../typechain'
+import { sendTxn } from '../utils/helper'
 
 const deployFunction: DeployFunction = async function ({ deployments, getNamedAccounts }: HardhatRuntimeEnvironment) {
   console.log('Running FireVerseNFT deploy script')
   const { deploy } = deployments
 
-  const { deployer } = await getNamedAccounts()
+  const { deployer, ownership } = await getNamedAccounts()
   console.log('Deployer:', deployer)
+  console.log('ownership:', ownership)
 
   const { address } = await deploy('FireVerseNFT', {
     from: deployer,
@@ -20,6 +23,10 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
   })
 
   console.log('FireVerseNFT deployed at ', address)
+
+    const nft = (await ethers.getContract('FireVerseNFT')) as FireVerseNFT
+
+    await sendTxn(nft.transferOwnership(ownership), 'Nft transferOwnership')
 }
 
 export default deployFunction
