@@ -15,7 +15,7 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
     log: true,
     deterministicDeployment: false,
     skipIfAlreadyDeployed: false,
-    // waitConfirmations: 3,
+    waitConfirmations: 5,
     args: ['Fireverse', 'FIR', parseUnits('1000000000'), deployer],
   })
 

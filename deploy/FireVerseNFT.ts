@@ -15,7 +15,7 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
     log: true,
     deterministicDeployment: false,
     skipIfAlreadyDeployed: false,
-    // waitConfirmations: 3,
+    waitConfirmations: 5,
     args: ['FireVerse NFT', 'FireVerseNFT', 100],
   })
 
