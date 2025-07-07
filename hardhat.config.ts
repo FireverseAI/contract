@@ -35,6 +35,12 @@ const namedAccounts = {
     dev_bsc_test: 0,
     bsc_mainnet: "0x4FB879f4d53b1F8FE0bA79f33b04f12cad6A164f"
   },
+  wbnb: {
+    hardhat: "",
+    localhost: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    dev_bsc_test: "0x84ca3Fa933d32CD1FEafb0028df11cf4F294E507",
+    bsc_mainnet: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"
+  },
   signer: {
     default: 0,
   },
@@ -51,6 +57,15 @@ const config: HardhatUserConfig = {
     compilers: [
       {
         version: '0.8.16',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: '0.4.18',
         settings: {
           optimizer: {
             enabled: true,

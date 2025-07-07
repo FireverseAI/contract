@@ -9,7 +9,7 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
   console.log('Running FireVerseNFTMarketplace deploy script')
   const { deploy } = deployments
 
-  const { deployer, ownership } = await getNamedAccounts()
+  const { deployer, ownership, wbnb } = await getNamedAccounts()
   console.log('Deployer:', deployer)
   console.log('ownership:', ownership)
 
@@ -28,10 +28,11 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
   const nft = (await ethers.getContract('FireVerseNFT')) as FireVerseNFT
   const market = (await ethers.getContract('FireVerseNFTMarketplace')) as FireVerseNFTMarketplace
   await sendTxn(market.allowNFT(nft.address, true), 'allowNFT')
-  await sendTxn(market.allowPaymentToken(ethers.constants.AddressZero, true), 'allow payment native token ')
+  await sendTxn(market.allowPaymentToken(ethers.constants.AddressZero, true), 'allow payment native token')
+  await sendTxn(market.allowPaymentToken(wbnb, true), 'allow WBNB')
   // await sendTxn(market.allowPaymentToken(firToken.address, true), "allow payment FIR token ")
 
-  await sendTxn(nft.transferOwnership(ownership), 'Nft transferOwnership')
+  // await sendTxn(nft.transferOwnership(ownership), 'Nft transferOwnership')
 }
 
 export default deployFunction

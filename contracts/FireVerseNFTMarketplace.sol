@@ -18,7 +18,7 @@ contract FireVerseNFTMarketplace is EIP712, Ownable2Step, ReentrancyGuard {
     string private constant SIGNATURE_VERSION = "1";
 
     struct Order {
-        address seller;
+        address signer;
         address nft;
         uint256 tokenId;
         uint256 price;
@@ -27,9 +27,14 @@ contract FireVerseNFTMarketplace is EIP712, Ownable2Step, ReentrancyGuard {
         uint256 expiry;
     }
 
-    bytes32 private constant ORDER_TYPEHASH =
+    bytes32 private constant LIST_TYPEHASH =
         keccak256(
-            "Order(address seller,address nft,uint256 tokenId,uint256 price,address paymentToken,uint256 nonce,uint256 expiry)"
+            "List(address signer,address nft,uint256 tokenId,uint256 price,address paymentToken,uint256 nonce,uint256 expiry)"
+        );
+
+    bytes32 private constant OFFER_TYPEHASH =
+        keccak256(
+            "Offer(address signer,address nft,uint256 tokenId,uint256 price,address paymentToken,uint256 nonce,uint256 expiry)"
         );
 
     mapping(address => bool) public allowedNFTs;
@@ -50,7 +55,7 @@ contract FireVerseNFTMarketplace is EIP712, Ownable2Step, ReentrancyGuard {
         uint256 royaltyAmount,
         uint256 platformFee
     );
-    event OrderCancelled(address indexed seller, address indexed nft, uint256 indexed tokenId, uint256 nonce);
+    event OrderCancelled(address indexed signer, address indexed nft, uint256 indexed tokenId, uint256 nonce);
     event NFTAllowed(address nft, bool allowed);
     event PaymentTokenAllowed(address token, bool allowed);
     event PlatformFeeUpdated(address recipient, uint96 feeBps);
@@ -76,11 +81,11 @@ contract FireVerseNFTMarketplace is EIP712, Ownable2Step, ReentrancyGuard {
         emit PlatformFeeUpdated(recipient, feeBps);
     }
 
-    function verify(Order calldata order, bytes calldata signature) public view returns (bool) {
+    function verify(bytes32 typeHash, Order calldata order, bytes calldata signature) public view returns (bool) {
         bytes32 structHash = keccak256(
             abi.encode(
-                ORDER_TYPEHASH,
-                order.seller,
+                typeHash,
+                order.signer,
                 order.nft,
                 order.tokenId,
                 order.price,
@@ -90,22 +95,22 @@ contract FireVerseNFTMarketplace is EIP712, Ownable2Step, ReentrancyGuard {
             )
         );
         bytes32 digest = _hashTypedDataV4(structHash);
-        return digest.recover(signature) == order.seller;
+        return digest.recover(signature) == order.signer;
     }
 
     function buy(Order calldata order, bytes calldata signature) external payable nonReentrant {
         require(block.timestamp <= order.expiry, "Order expired");
         require(allowedNFTs[order.nft], "NFT not allowed");
         require(allowedPaymentTokens[order.paymentToken], "Token not allowed");
-        require(order.nonce == nonces[order.seller][order.nft][order.tokenId], "Invalid nonce");
-        require(verify(order, signature), "Invalid signature");
+        require(order.nonce == nonces[order.signer][order.nft][order.tokenId], "Invalid nonce");
+        require(verify(LIST_TYPEHASH, order, signature), "Invalid signature");
 
-        nonces[order.seller][order.nft][order.tokenId]++;
+        nonces[order.signer][order.nft][order.tokenId]++;
 
         IERC721 nft = IERC721(order.nft);
-        require(nft.ownerOf(order.tokenId) == order.seller, "Seller not NFT owner");
+        require(nft.ownerOf(order.tokenId) == order.signer, "Seller not NFT owner");
         require(
-            nft.getApproved(order.tokenId) == address(this) || nft.isApprovedForAll(order.seller, address(this)),
+            nft.getApproved(order.tokenId) == address(this) || nft.isApprovedForAll(order.signer, address(this)),
             "Marketplace not approved"
         );
 
@@ -118,20 +123,66 @@ contract FireVerseNFTMarketplace is EIP712, Ownable2Step, ReentrancyGuard {
             require(msg.value == order.price, "Incorrect Native Token amount");
             if (royaltyAmount > 0) payable(royaltyRecipient).sendValue(royaltyAmount);
             if (platformFee > 0) payable(platformFeeRecipient).sendValue(platformFee);
-            payable(order.seller).sendValue(sellerAmount);
+            payable(order.signer).sendValue(sellerAmount);
         } else {
             // ERC20
+            require(msg.value == 0, "Incorrect Native Token amount");
             IERC20 token = IERC20(order.paymentToken);
             if (royaltyAmount > 0) token.safeTransferFrom(msg.sender, royaltyRecipient, royaltyAmount);
             if (platformFee > 0) token.safeTransferFrom(msg.sender, platformFeeRecipient, platformFee);
-            token.safeTransferFrom(msg.sender, order.seller, sellerAmount);
+            token.safeTransferFrom(msg.sender, order.signer, sellerAmount);
         }
 
-        nft.safeTransferFrom(order.seller, msg.sender, order.tokenId);
+        nft.safeTransferFrom(order.signer, msg.sender, order.tokenId);
 
         emit OrderExecuted(
             msg.sender,
-            order.seller,
+            order.signer,
+            order.nft,
+            order.tokenId,
+            order.paymentToken,
+            order.price,
+            royaltyAmount,
+            platformFee
+        );
+    }
+
+    function acceptOffer(Order calldata order, bytes calldata signature) external nonReentrant {
+        require(block.timestamp <= order.expiry, "Order expired");
+        require(allowedNFTs[order.nft], "NFT not allowed");
+        require(allowedPaymentTokens[order.paymentToken], "Token not allowed");
+        require(order.nonce == nonces[order.signer][order.nft][order.tokenId], "Invalid nonce");
+        require(verify(OFFER_TYPEHASH, order, signature), "Invalid signature");
+
+        nonces[order.signer][order.nft][order.tokenId]++;
+
+        IERC721 nft = IERC721(order.nft);
+        require(nft.ownerOf(order.tokenId) == msg.sender, "Seller not NFT owner");
+        require(
+            nft.getApproved(order.tokenId) == address(this) || nft.isApprovedForAll(msg.sender, address(this)),
+            "Marketplace not approved"
+        );
+
+        (address royaltyRecipient, uint256 royaltyAmount) = _getRoyalty(order.nft, order.tokenId, order.price);
+        uint256 platformFee = (order.price * platformFeeBps) / 10_000;
+        uint256 sellerAmount = order.price - royaltyAmount - platformFee;
+
+        if (order.paymentToken == address(0)) {
+            // Native Token
+            revert("Native token not supported");
+        } else {
+            // ERC20
+            IERC20 token = IERC20(order.paymentToken);
+            if (royaltyAmount > 0) token.safeTransferFrom(order.signer, royaltyRecipient, royaltyAmount);
+            if (platformFee > 0) token.safeTransferFrom(order.signer, platformFeeRecipient, platformFee);
+            token.safeTransferFrom(order.signer, msg.sender, sellerAmount);
+        }
+
+        nft.safeTransferFrom(msg.sender, order.signer, order.tokenId);
+
+        emit OrderExecuted(
+            order.signer,
+            msg.sender,
             order.nft,
             order.tokenId,
             order.paymentToken,

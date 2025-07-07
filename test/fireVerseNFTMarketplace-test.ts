@@ -53,14 +53,14 @@ describe('FireVerseNFTMarketplace', async function () {
     })
 
     async function createOrder(
-      seller: Wallet,
+      signer: Wallet,
       tokenId: number,
       price: string = '1',
       nonce: number = 0,
       paymentToken: string = ethers.constants.AddressZero
     ) {
       return {
-        seller: seller.address,
+        signer: signer.address,
         nft: fireVerseNFT.address,
         tokenId,
         price: parseUnits(price, 18),
@@ -70,7 +70,7 @@ describe('FireVerseNFTMarketplace', async function () {
       };
     }
 
-    async function signOrder(order: any, signer: Wallet) {
+    async function signList(order: any, signer: Wallet) {
       const domain = {
         name: "FireVerseNFTMarketplace",
         version: "1",
@@ -79,8 +79,31 @@ describe('FireVerseNFTMarketplace', async function () {
       };
 
       const types = {
-        Order: [
-          { name: "seller", type: "address" },
+        List: [
+          { name: "signer", type: "address" },
+          { name: "nft", type: "address" },
+          { name: "tokenId", type: "uint256" },
+          { name: "price", type: "uint256" },
+          { name: "paymentToken", type: "address" },
+          { name: "nonce", type: "uint256" },
+          { name: "expiry", type: "uint256" },
+        ],
+      };
+
+      return await signer._signTypedData(domain, types, order);
+    }
+
+    async function signOffer(order: any, signer: Wallet) {
+      const domain = {
+        name: "FireVerseNFTMarketplace",
+        version: "1",
+        chainId: await getChainId(),
+        verifyingContract: marketPlace.address,
+      };
+
+      const types = {
+        Offer: [
+          { name: "signer", type: "address" },
           { name: "nft", type: "address" },
           { name: "tokenId", type: "uint256" },
           { name: "price", type: "uint256" },
@@ -100,8 +123,9 @@ describe('FireVerseNFTMarketplace', async function () {
       await fireVerseNFT.connect(user0).mint(1, uri);
       expect(await fireVerseNFT.ownerOf(1)).to.equal(user0.address);
 
+      expect(await marketPlace.nonces(user0.address, fireVerseNFT.address, 1)).equal(0)
       const order = await createOrder(user0, 1);
-      const signature = await signOrder(order, user0);
+      const signature = await signList(order, user0);
 
       await fireVerseNFT.connect(user0).setApprovalForAll(marketPlace.address, true);
 
@@ -110,8 +134,9 @@ describe('FireVerseNFTMarketplace', async function () {
       const beforePlatformFeeRecipientBalance = await owner.getBalance();;
       await expect(marketPlace.connect(user1).buy(order, signature, { value: order.price }))
         .emit(marketPlace, "OrderExecuted").
-        withArgs(user1.address, order.seller, order.nft, order.tokenId, order.paymentToken, order.price, parseUnits('0.01'), parseUnits('0.01'));
+        withArgs(user1.address, order.signer, order.nft, order.tokenId, order.paymentToken, order.price, parseUnits('0.01'), parseUnits('0.01'));
 
+      expect(await marketPlace.nonces(user0.address, fireVerseNFT.address, 1)).equal(1)
       expect(await fireVerseNFT.ownerOf(1)).to.equal(user1.address);
       const afterSellerBalance = await user0.getBalance();
       const afterPlatformFeeRecipientBalance = await owner.getBalance();;
@@ -124,7 +149,7 @@ describe('FireVerseNFTMarketplace', async function () {
       expect(await fireVerseNFT.ownerOf(1)).to.equal(user0.address);
 
       const order = await createOrder(user0, 1, '1', 0, testToken.address);
-      const signature = await signOrder(order, user0);
+      const signature = await signList(order, user0);
 
       await fireVerseNFT.connect(user0).setApprovalForAll(marketPlace.address, true);
       await testToken.connect(owner).transfer(user1.address, parseUnits('1'))
@@ -134,7 +159,35 @@ describe('FireVerseNFTMarketplace', async function () {
       const beforeBuyerBalance = await testToken.balanceOf(user1.address);
       const beforePlatformFeeRecipientBalance = await testToken.balanceOf(owner.address);
 
-      await marketPlace.connect(user1).buy(order, signature, { value: order.price });
+      await marketPlace.connect(user1).buy(order, signature);
+      expect(await marketPlace.nonces(user0.address, fireVerseNFT.address, 1)).equal(1)
+
+      expect(await fireVerseNFT.ownerOf(1)).to.equal(user1.address);
+      const afterSellerBalance = await testToken.balanceOf(user0.address);
+      const afterBuyerBalance = await testToken.balanceOf(user1.address);
+      const afterPlatformFeeRecipientBalance = await testToken.balanceOf(owner.address);
+      expect(afterSellerBalance).to.equal(beforeSellerBalance.add(parseUnits('0.99')));
+      expect(afterBuyerBalance).to.equal(beforeBuyerBalance.sub(parseUnits('1')));
+      expect(afterPlatformFeeRecipientBalance).to.equal(beforePlatformFeeRecipientBalance.add(parseUnits('0.01')));
+    });
+
+    it('user0 accept user1 offer with token', async () => {
+      await fireVerseNFT.connect(user0).mint(1, uri);
+      expect(await fireVerseNFT.ownerOf(1)).to.equal(user0.address);
+
+      const order = await createOrder(user1, 1, '1', 0, testToken.address);
+      const signature = await signOffer(order, user1);
+
+      await fireVerseNFT.connect(user0).setApprovalForAll(marketPlace.address, true);
+      await testToken.connect(owner).transfer(user1.address, parseUnits('1'))
+      await testToken.connect(user1).approve(marketPlace.address, parseUnits('1'))
+
+      const beforeSellerBalance = await testToken.balanceOf(user0.address)
+      const beforeBuyerBalance = await testToken.balanceOf(user1.address);
+      const beforePlatformFeeRecipientBalance = await testToken.balanceOf(owner.address);
+
+      await marketPlace.connect(user0).acceptOffer(order, signature);
+      expect(await marketPlace.nonces(user1.address, fireVerseNFT.address, 1)).equal(1)
 
       expect(await fireVerseNFT.ownerOf(1)).to.equal(user1.address);
       const afterSellerBalance = await testToken.balanceOf(user0.address);
@@ -151,11 +204,11 @@ describe('FireVerseNFTMarketplace', async function () {
       await fireVerseNFT.connect(user0).setApprovalForAll(marketPlace.address, true);
 
       const order1 = await createOrder(user0, 1);
-      const sig1 = await signOrder(order1, user0);
+      const sig1 = await signList(order1, user0);
       await marketPlace.connect(user1).buy(order1, sig1, { value: order1.price });
 
       const order2 = await createOrder(user1, 1);
-      const sig2 = await signOrder(order2, user1);
+      const sig2 = await signList(order2, user1);
       await fireVerseNFT.connect(user1).setApprovalForAll(marketPlace.address, true);
 
       const beforeUser0 = await user0.getBalance();
@@ -176,7 +229,7 @@ describe('FireVerseNFTMarketplace', async function () {
 
       await marketPlace.connect(user0).cancelOrder(fireVerseNFT.address, 1, 0);
       // await marketPlace.connect(user0).batchCancelOrder([fireVerseNFT.address], [1], [0]);
-      const signature = await signOrder(order, user0);
+      const signature = await signList(order, user0);
 
       await fireVerseNFT.connect(user0).setApprovalForAll(marketPlace.address, true);
 
@@ -190,7 +243,7 @@ describe('FireVerseNFTMarketplace', async function () {
       const order = await createOrder(user0, 1, '1', 0);
 
       order.expiry -= 10000
-      const signature = await signOrder(order, user0);
+      const signature = await signList(order, user0);
 
       await fireVerseNFT.connect(user0).setApprovalForAll(marketPlace.address, true);
 
