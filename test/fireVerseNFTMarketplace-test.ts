@@ -6,7 +6,7 @@ import { takeSnapshot, SnapshotRestorer } from '@nomicfoundation/hardhat-network
 import { Wallet } from 'ethers'
 import { deployContract } from './utils/contracts'
 
-import { FireVerseNFT, FireVerseNFTMarketplace, TestERC20 } from '../typechain'
+import { FireVerseNFT, FireVerseNFTMarketplace, TestERC20, WBNB } from '../typechain'
 
 describe('FireVerseNFTMarketplace', async function () {
   let owner: any
@@ -34,14 +34,17 @@ describe('FireVerseNFTMarketplace', async function () {
     let fireVerseNFT: FireVerseNFT
     let marketPlace: FireVerseNFTMarketplace
     let testToken: TestERC20
+    let wbnb: WBNB
 
     before('', async function () {
       fireVerseNFT = (await deployContract('FireVerseNFT', ['FireVerse NFT', 'FireVerseNFT', 100])) as FireVerseNFT
       marketPlace = (await deployContract('FireVerseNFTMarketplace', [])) as FireVerseNFTMarketplace
       testToken = (await deployContract('TestERC20', ["Test Token", "TST", parseUnits('1000000'), 18])) as TestERC20
+      wbnb = (await deployContract('WBNB', [])) as WBNB
 
       await marketPlace.connect(owner).allowNFT(fireVerseNFT.address, true)
       await marketPlace.connect(owner).allowPaymentToken(ethers.constants.AddressZero, true)
+      await marketPlace.connect(owner).allowPaymentToken(wbnb.address, true)
       await marketPlace.connect(owner).allowPaymentToken(testToken.address, true)
       snapshot = await takeSnapshot()
     })
@@ -144,28 +147,29 @@ describe('FireVerseNFTMarketplace', async function () {
       expect(afterPlatformFeeRecipientBalance).to.equal(beforePlatformFeeRecipientBalance.add(parseUnits('0.01')));
     });
 
-    it('buy user0 to user1 with token', async () => {
+    it('buy user0 to user1 with wbnb token', async () => {
       await fireVerseNFT.connect(user0).mint(1, uri);
       expect(await fireVerseNFT.ownerOf(1)).to.equal(user0.address);
 
-      const order = await createOrder(user0, 1, '1', 0, testToken.address);
+      const order = await createOrder(user0, 1, '1', 0, wbnb.address);
       const signature = await signList(order, user0);
 
       await fireVerseNFT.connect(user0).setApprovalForAll(marketPlace.address, true);
-      await testToken.connect(owner).transfer(user1.address, parseUnits('1'))
-      await testToken.connect(user1).approve(marketPlace.address, parseUnits('1'))
+      
+      await wbnb.connect(user1).deposit( { value: parseUnits('1') })
+      await wbnb.connect(user1).approve(marketPlace.address, parseUnits('1'))
 
-      const beforeSellerBalance = await testToken.balanceOf(user0.address)
-      const beforeBuyerBalance = await testToken.balanceOf(user1.address);
-      const beforePlatformFeeRecipientBalance = await testToken.balanceOf(owner.address);
+      const beforeSellerBalance = await wbnb.balanceOf(user0.address)
+      const beforeBuyerBalance = await wbnb.balanceOf(user1.address);
+      const beforePlatformFeeRecipientBalance = await wbnb.balanceOf(owner.address);
 
       await marketPlace.connect(user1).buy(order, signature);
       expect(await marketPlace.nonces(user0.address, fireVerseNFT.address, 1)).equal(1)
 
       expect(await fireVerseNFT.ownerOf(1)).to.equal(user1.address);
-      const afterSellerBalance = await testToken.balanceOf(user0.address);
-      const afterBuyerBalance = await testToken.balanceOf(user1.address);
-      const afterPlatformFeeRecipientBalance = await testToken.balanceOf(owner.address);
+      const afterSellerBalance = await wbnb.balanceOf(user0.address);
+      const afterBuyerBalance = await wbnb.balanceOf(user1.address);
+      const afterPlatformFeeRecipientBalance = await wbnb.balanceOf(owner.address);
       expect(afterSellerBalance).to.equal(beforeSellerBalance.add(parseUnits('0.99')));
       expect(afterBuyerBalance).to.equal(beforeBuyerBalance.sub(parseUnits('1')));
       expect(afterPlatformFeeRecipientBalance).to.equal(beforePlatformFeeRecipientBalance.add(parseUnits('0.01')));
