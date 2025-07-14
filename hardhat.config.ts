@@ -41,6 +41,16 @@ const namedAccounts = {
     dev_bsc_test: "0x84ca3Fa933d32CD1FEafb0028df11cf4F294E507",
     bsc_mainnet: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c"
   },
+  vestingBeneficiary: {
+    hardhat: 0,
+    dev_bsc_test: "",
+    bsc_mainnet: ""
+  },
+  vboxNFT: {
+    localhost: "0x02d090c51408B895C653769752DC7b425f6e9149",
+    dev_bsc_test: "",
+    bsc_mainnet: "0x02d090c51408B895C653769752DC7b425f6e9149"
+  },
   signer: {
     default: 0,
   },
