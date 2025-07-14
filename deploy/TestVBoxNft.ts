@@ -19,7 +19,7 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
     args: ['VBox', 'VBOX'],
   })
 
-  console.log('WBNB deployed at ', address)
+  console.log('VboxNFT deployed at ', address)
 }
 
 export default deployFunction
@@ -30,4 +30,4 @@ deployFunction.skip = async () => {
   return Promise.resolve(true)
 }
 
-deployFunction.tags = ['WBNB']
+deployFunction.tags = ['VboxNFT']

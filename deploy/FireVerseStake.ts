@@ -11,7 +11,7 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
   const { deployer, vboxNFT } = await getNamedAccounts()
   console.log('Deployer:', deployer)
 
-  const startTimestamp = 1752451200
+  const startTimestamp = 1755216000
   const totalReward = parseUnits("300000000")
 
   const firToken = (await ethers.getContract('FIR')) as FIR
@@ -32,8 +32,8 @@ export default deployFunction
 
 deployFunction.dependencies = ["FIR"]
 
-// deployFunction.skip = async () => {
-//   return Promise.resolve(true)
-// }
+deployFunction.skip = async () => {
+  return Promise.resolve(true)
+}
 
 deployFunction.tags = ['FirVerseStake']
