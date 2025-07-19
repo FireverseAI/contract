@@ -9,9 +9,10 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
   console.log('Running FireVerseNFT deploy script')
   const { deploy } = deployments
 
-  const { deployer, ownership } = await getNamedAccounts()
+  const { deployer, ownership, nftMintSigner } = await getNamedAccounts()
   console.log('Deployer:', deployer)
   console.log('ownership:', ownership)
+  console.log('nftMintSigner:', nftMintSigner)
 
   const { address } = await deploy('FireVerseNFT', {
     from: deployer,
@@ -19,7 +20,7 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
     deterministicDeployment: false,
     skipIfAlreadyDeployed: false,
     waitConfirmations: 5,
-    args: ['FireVerse NFT', 'FireVerseNFT', 100],
+    args: ['FireVerse NFT', 'FireVerseNFT', 100, nftMintSigner],
   })
 
   console.log('FireVerseNFT deployed at ', address)
@@ -33,8 +34,8 @@ export default deployFunction
 
 deployFunction.dependencies = []
 
-deployFunction.skip = async () => {
-  return Promise.resolve(true)
-}
+// deployFunction.skip = async () => {
+//   return Promise.resolve(true)
+// }
 
 deployFunction.tags = ['FireVerseNFT']
