@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract FirVerseStake is ERC721Holder, Ownable2Step, ReentrancyGuard  {
     using EnumerableSet for EnumerableSet.UintSet;
@@ -43,7 +44,6 @@ contract FirVerseStake is ERC721Holder, Ownable2Step, ReentrancyGuard  {
         uint256 startDay;
         uint256 lockDays;
         uint256 rewardRate;
-        uint256 claimedDay;
         bool redeemed;
     }
 
@@ -54,9 +54,11 @@ contract FirVerseStake is ERC721Holder, Ownable2Step, ReentrancyGuard  {
     mapping(uint256 => address) public nftOwner;
     mapping(address => EnumerableSet.UintSet) private userStakes;
     mapping(uint256 => uint256) public dailyClaimed;
+    mapping(address => mapping(uint256 => uint256)) public userDailyClaimed;
+    mapping(uint256 => bytes32) public dailyRewardRoot;
 
     event Staked(address indexed user, uint256 indexed stakeId, uint256 nftId, uint256 amount, uint256 lockDays);
-    event Claimed(address indexed user, uint256 indexed stakeId, uint256 reward, uint256 day);
+    event Claimed(address indexed user, uint256 reward, uint256 day);
     event Redeemed(address indexed user, uint256 indexed stakeId);
     event NFTWithdrawn(address indexed user, uint256 nftId);
     event DailyBurned(uint256 indexed day, uint256 amount);
@@ -99,9 +101,13 @@ contract FirVerseStake is ERC721Holder, Ownable2Step, ReentrancyGuard  {
         maxStakePerNFT = maxAmount;
     }
 
+    function setMerkleRoot(uint256 day, bytes32 root) external onlyOwner {
+        dailyRewardRoot[day] = root;
+    }
+
     function getCurrentDay() public view returns (uint256) {
         if (block.timestamp < startTimestamp) return 0;
-        return (block.timestamp - startTimestamp) / 1 days + 1;
+        return (block.timestamp - startTimestamp) / 1 days;
     }
 
     function batchStake(uint256[] calldata nftIdArr, uint256[] calldata stakeTypeArr, uint256[] calldata amountArr) external nonReentrant {
@@ -144,7 +150,6 @@ contract FirVerseStake is ERC721Holder, Ownable2Step, ReentrancyGuard  {
             startDay: currentDay,
             lockDays: sType.lockDays,
             rewardRate: sType.rewardRate,
-            claimedDay: currentDay - 1,
             redeemed: false
         });
 
@@ -154,43 +159,27 @@ contract FirVerseStake is ERC721Holder, Ownable2Step, ReentrancyGuard  {
         emit Staked(msg.sender, stakeId, nftId, amount, sType.lockDays);
     }
 
-    function claim(uint256 from, uint256 to) external nonReentrant {
+    function claim(uint256 dailyTotalReward, bytes32[] calldata proof) external nonReentrant {
         _burnPending();
         uint256 today = getCurrentDay();
         if (today > TOTAL_DAYS) return;
 
-        uint256 claimableReward = 0;
-        EnumerableSet.UintSet storage set = userStakes[msg.sender];
-        uint256 len = set.length();
+        uint256 rewardDay = today;
+        require(rewardDay > 0, "Reward not start");
 
-        require(from < to && to <= len, "Invalid range");
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender, dailyTotalReward));
+        require(MerkleProof.verify(proof, dailyRewardRoot[rewardDay], leaf), "Invalid proof");
 
-        for (uint256 i = from; i < to; ++i) {
-            uint256 id = set.at(i);
-            StakeInfo memory s = stakes[id];
-            if (s.redeemed) continue;
+        uint256 claimableReward = dailyTotalReward - userDailyClaimed[msg.sender][rewardDay];
+        uint256 available = dailyUnlock - dailyClaimed[rewardDay];
+        uint256 actualReward = claimableReward > available ? available : claimableReward;
 
-            uint256 rewardDay = today - 1;
-            if (rewardDay >= s.startDay + s.lockDays - 1) continue;
-            if (s.claimedDay >= today) continue;
+        userDailyClaimed[msg.sender][rewardDay] = actualReward;
+        dailyClaimed[rewardDay] += actualReward;
 
-            uint256 reward = s.amount * s.rewardRate / BASIS_POINTS_DIVISOR / TOTAL_DAYS;
-            uint256 available = dailyUnlock - dailyClaimed[rewardDay];
-            uint256 actualReward = reward > available ? available : reward;
-
-            if (actualReward == 0) continue;
-
-            s.claimedDay = today;
-            claimableReward += actualReward;
-
-            stakes[id] = s;
-            dailyClaimed[rewardDay] += actualReward;
-            
-            emit Claimed(msg.sender, id, actualReward, rewardDay);
-        }
-
-        if (claimableReward > 0) {
-            firToken.safeTransfer(msg.sender, claimableReward);
+        if (actualReward > 0) {
+            firToken.safeTransfer(msg.sender, actualReward);
+            emit Claimed(msg.sender, actualReward, rewardDay);
         }
     }
 
@@ -198,7 +187,7 @@ contract FirVerseStake is ERC721Holder, Ownable2Step, ReentrancyGuard  {
         StakeInfo storage s = stakes[stakeId];
         require(s.owner == msg.sender, "Not stake owner");
         require(!s.redeemed, "Already redeemed");
-        require(getCurrentDay() >= s.startDay + s.lockDays, "Stake not matured");
+        require(getCurrentDay() > s.startDay + s.lockDays, "Stake not matured");
 
         s.redeemed = true;
         nftStakedAmount[s.nftId] -= s.amount;
@@ -219,12 +208,12 @@ contract FirVerseStake is ERC721Holder, Ownable2Step, ReentrancyGuard  {
 
     function _burnPending() internal {
         uint256 today = getCurrentDay();
-        if (lastBurnedDay >= today - 1) return;
+        if (lastBurnedDay + 1 >= today) return;
 
         uint256 pendingDays = today - 1 - lastBurnedDay;
         uint256 expectedUnlock = dailyUnlock * pendingDays;
         
-        uint256 claimed = dailyClaimed[lastBurnedDay];
+        uint256 claimed = dailyClaimed[lastBurnedDay + 1];
 
         if (totalUnlocked + expectedUnlock > totalReward) {
             expectedUnlock = totalReward - totalUnlocked;

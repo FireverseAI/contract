@@ -1,10 +1,11 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
-import { parseEther } from 'ethers/lib/utils'
+import { formatUnits, keccak256, parseEther, parseUnits, solidityPack } from 'ethers/lib/utils'
 import { time, takeSnapshot, SnapshotRestorer } from '@nomicfoundation/hardhat-network-helpers'
 import { deployContract } from './utils/contracts'
 import { getWalletWithEther } from './utils/impersonate'
-import { Wallet } from 'ethers'
+import { BigNumber, Wallet } from 'ethers'
+import MerkleTree from 'merkletreejs'
 
 import { FirVerseStake, FIR, TestERC721 } from '../typechain'
 
@@ -15,16 +16,20 @@ function toUTC0(ts: number): number {
 }
 
 async function moveToDay(startTs: number, day: number) {
-  const target = startTs + (day - 1) * ONE_DAY + 1000
+  const target = startTs + (day) * ONE_DAY + 1000
   await time.setNextBlockTimestamp(target)
 }
 
 describe('FirVerseStake', function () {
-  let owner: any, user0: Wallet, user1: Wallet
+  let owner: any, user0: Wallet, user1: Wallet, user2: Wallet
   let fir: FIR, nft: TestERC721, staking: FirVerseStake
   let snapshot: SnapshotRestorer
+  
+  let whitelisted: Wallet[] = []
+  let unWhitelisted: Wallet[] = []
 
   const totalReward = parseEther('360')
+  const dailyReward = totalReward.div(BigNumber.from(360))
   const lockDays = 15
   const arpBps = 2500 // 25%
   let startTimestamp: number
@@ -33,6 +38,12 @@ describe('FirVerseStake', function () {
     owner = await ethers.getNamedSigner('deployer')
     user0 = await getWalletWithEther()
     user1 = await getWalletWithEther()
+    user2 = await getWalletWithEther()
+
+    whitelisted.push(user0)
+    whitelisted.push(user1)
+    
+    unWhitelisted.push(user2)
 
     fir = (await deployContract('FIR', ['FIR Token', 'FIR', parseEther('1000000000'), owner.address])) as FIR
     nft = (await deployContract('TestERC721', ['VBox', 'VBOX'])) as TestERC721
@@ -96,48 +107,57 @@ describe('FirVerseStake', function () {
   })
 
   it(`Stake and claim full reward`, async () => {
-    await moveToDay(startTimestamp, 1)
+    await moveToDay(startTimestamp, 0)
     await staking.connect(user0).stake(1, 0, parseEther('1000'))
     const stakeIds = await staking.getUserStakeIds(user0.address)
     expect(stakeIds.length).to.eq(1)
-
-    for (let i = 1; i <= lockDays; i++) {
-      await staking.connect(user0).claim(0, 1)
-      await moveToDay(startTimestamp, i + 1)
-    }
-    await staking.connect(user0).claim(0, 1)
     
-    const oneDayReward = parseEther('1000').mul(arpBps).div(10000).div(360)
-    const expectedReward = oneDayReward.mul(lockDays)
+    const leafNodes = whitelisted.map((x) => keccak256(solidityPack(['address', 'uint256'], [x.address, parseUnits("1")])))
+    const tree = new MerkleTree(leafNodes, keccak256, { sortPairs: true })
+    const root = tree.getHexRoot()
+    await staking.connect(owner).setMerkleRoot(1, root)
+
+    const leaf = keccak256(solidityPack(['address', 'uint256'], [whitelisted[0].address, parseUnits('1')]))
+    const proof = tree.getHexProof(leaf)
+
+    await moveToDay(startTimestamp, 1)
+    await staking.connect(user0).claim(parseUnits('1'), proof)
+    
+    const expectedReward = parseUnits('1')
     const actual = await fir.balanceOf(user0.address)
     const base = parseEther('9000')
 
     expect(actual).equal(base.add(expectedReward))
     
-    expect(await fir.balanceOf(staking.address)).eq(totalReward.add(parseEther('1000')).sub(parseEther('15')))
+    expect(await fir.balanceOf(staking.address)).eq(totalReward.add(parseEther('1000')).sub(expectedReward))
 
-    expect(await staking.lastBurnedDay()).eq(15)
-    expect(await staking.totalUnlocked()).eq(parseEther('15'))
+    expect(await staking.lastBurnedDay()).eq(0)
   })
 
   it(`Stake and claim not enough reward`, async () => {
-    await moveToDay(startTimestamp, 1)
+    await moveToDay(startTimestamp, 0)
     await staking.connect(user0).stake(1, 0, parseEther('1500'))
     const stakeIds = await staking.getUserStakeIds(user0.address)
     expect(stakeIds.length).to.eq(1)
 
-    for (let i = 1; i <= lockDays; i++) {
-      await staking.connect(user0).claim(0, 1)
-      await moveToDay(startTimestamp, i + 1)
-    }
+    const leafNodes = whitelisted.map((x) => keccak256(solidityPack(['address', 'uint256'], [x.address, parseUnits("2.1")])))
+    const tree = new MerkleTree(leafNodes, keccak256, { sortPairs: true })
+    const root = tree.getHexRoot()
+    await staking.connect(owner).setMerkleRoot(1, root)
 
-    await staking.connect(user0).claim(0, 1)
-    expect(await fir.balanceOf(staking.address)).eq(totalReward.add(parseEther('1500')).sub(parseEther('15')))
+    const leaf = keccak256(solidityPack(['address', 'uint256'], [whitelisted[0].address, parseUnits('2.1')]))
+    const proof = tree.getHexProof(leaf)
+
+    await moveToDay(startTimestamp, 1)
+    await staking.connect(user0).claim(parseUnits('2.1'), proof)
+    
+    expect(await fir.balanceOf(staking.address)).eq(totalReward.add(parseEther('1500')).sub(dailyReward))
 
     await moveToDay(startTimestamp, 361)
-    await staking.connect(user0).claim(0, 1)
+    await staking.connect(owner).setMerkleRoot(361, root)
+    await staking.connect(user0).claim(parseUnits('2'), proof)
 
-    const expectedReward = totalReward.div(360).mul(lockDays)
+    const expectedReward = dailyReward.mul(1)
     const actual = await fir.balanceOf(user0.address)
     const base = parseEther('8500')
 
@@ -147,7 +167,7 @@ describe('FirVerseStake', function () {
   })
 
   it('Redeem stake', async () => {
-    await moveToDay(startTimestamp, 1)
+    await moveToDay(startTimestamp, 0)
     await staking.connect(user0).stake(1, 0, parseEther('1000'))
     const [id] = await staking.getUserStakeIds(user0.address)
 
@@ -164,21 +184,32 @@ describe('FirVerseStake', function () {
   })
 
   it('Only one day rewards for claiming multiple times a day', async () => {
-    await moveToDay(startTimestamp, 1)
+    await moveToDay(startTimestamp, 0)
     await staking.connect(user0).stake(1, 0, parseEther('1000'))
 
     const before = await fir.balanceOf(user0.address)
-    await staking.connect(user0).claim(0, 1)
+    
+    const leafNodes = whitelisted.map((x) => keccak256(solidityPack(['address', 'uint256'], [x.address, parseUnits("1")])))
+    const tree = new MerkleTree(leafNodes, keccak256, { sortPairs: true })
+    const root = tree.getHexRoot()
+    await staking.connect(owner).setMerkleRoot(1, root)
+
+    const leaf = keccak256(solidityPack(['address', 'uint256'], [whitelisted[0].address, parseUnits('1')]))
+    const proof = tree.getHexProof(leaf)
+
+    await moveToDay(startTimestamp, 1)
+    await staking.connect(user0).claim(parseUnits('1'), proof)
+
     const afterFirst = await fir.balanceOf(user0.address)
     expect(afterFirst).to.be.gt(before)
 
-    await staking.connect(user0).claim(0, 1)
+    await staking.connect(user0).claim(parseUnits('1'), proof)
     const afterSecond = await fir.balanceOf(user0.address)
     expect(afterSecond.sub(afterFirst)).to.eq(0)
   })
 
   it('NFT is allow withdraw after full redemption', async () => {
-    await moveToDay(startTimestamp, 1)
+    await moveToDay(startTimestamp, 0)
     await staking.connect(user0).stake(1, 0, parseEther('1000'))
     const [id] = await staking.getUserStakeIds(user0.address)
 

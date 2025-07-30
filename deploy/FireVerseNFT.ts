@@ -34,8 +34,8 @@ export default deployFunction
 
 deployFunction.dependencies = []
 
-// deployFunction.skip = async () => {
-//   return Promise.resolve(true)
-// }
+deployFunction.skip = async () => {
+  return Promise.resolve(true)
+}
 
 deployFunction.tags = ['FireVerseNFT']
