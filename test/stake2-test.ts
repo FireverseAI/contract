@@ -41,8 +41,10 @@ describe('FirVerseStake2', function () {
   })
 
   it(`Stake`, async () => {
-    await expect(staking.connect(user0).stakeToken(parseEther('1'))).revertedWith("Below minimum stake amount")
+    await staking.setMinStakeAmount(parseEther('1001'))
+    await expect(staking.connect(user0).stakeToken(parseEther('1000'))).revertedWith("Below minimum stake amount")
     
+    await staking.setMinStakeAmount(parseEther('1000'))
     await staking.connect(user0).stakeToken(parseEther('1000'))
     await staking.connect(user0).stakeNft(1)
     
