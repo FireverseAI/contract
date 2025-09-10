@@ -14,7 +14,7 @@ contract FirVerseStake2 is ERC721Holder, Ownable2Step, ReentrancyGuard {
     IERC20 public immutable firToken;
     IERC721 public immutable vboxNFT;
 
-    uint256 minStakeAmount;
+    uint256 public minStakeAmount;
 
     struct StakeInfo {
         uint256 nftId;
@@ -68,9 +68,9 @@ contract FirVerseStake2 is ERC721Holder, Ownable2Step, ReentrancyGuard {
     function _stakeToken(address user, uint256 amount) internal {
         StakeInfo memory s = stakes[user];
         require(amount >= minStakeAmount, "Below minimum stake amount");
-        require(s.tokenStakeTimestamp == 0, "Already staked");
+        require(!s.tokenRedeemed, "Can not stake");
 
-        s.amount = amount;
+        s.amount = s.amount + amount;
         s.tokenStakeTimestamp = block.timestamp;
         stakes[user] = s;
 
@@ -91,10 +91,11 @@ contract FirVerseStake2 is ERC721Holder, Ownable2Step, ReentrancyGuard {
         StakeInfo memory s = stakes[user];
         require(!s.nftRedeemed, "Already redeemed");
 
-        s.nftRedeemed = true;
-        stakes[user] = s;
-
         vboxNFT.safeTransferFrom(address(this), user, s.nftId);
+        
+        s.nftRedeemed = true;
+        s.nftId = 0;
+        stakes[user] = s;
 
         emit NftRedeemed(user, s.nftId);
     }
@@ -103,10 +104,11 @@ contract FirVerseStake2 is ERC721Holder, Ownable2Step, ReentrancyGuard {
         StakeInfo memory s = stakes[user];
         require(!s.tokenRedeemed, "Already redeemed");
 
-        s.tokenRedeemed = true;
-        stakes[user] = s;
-
         firToken.safeTransfer(user, s.amount);
+
+        s.tokenRedeemed = true;
+        s.amount = 0;
+        stakes[user] = s;
 
         emit TokenRedeemed(user, s.amount);
     }

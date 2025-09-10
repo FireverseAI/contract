@@ -1,11 +1,10 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
-import { formatUnits, keccak256, parseEther, parseUnits, solidityPack } from 'ethers/lib/utils'
-import { time, takeSnapshot, SnapshotRestorer } from '@nomicfoundation/hardhat-network-helpers'
+import { parseEther } from 'ethers/lib/utils'
+import { takeSnapshot, SnapshotRestorer } from '@nomicfoundation/hardhat-network-helpers'
 import { deployContract } from './utils/contracts'
 import { getWalletWithEther } from './utils/impersonate'
-import { BigNumber, Wallet } from 'ethers'
-import MerkleTree from 'merkletreejs'
+import { Wallet } from 'ethers'
 
 import { FirVerseStake2, FIR, TestERC721 } from '../typechain'
 
@@ -51,6 +50,11 @@ describe('FirVerseStake2', function () {
     expect(await fir.balanceOf(staking.address)).to.equal(parseEther('1000'))
     expect(await fir.balanceOf(user0.address)).to.equal(parseEther('10000').sub(parseEther('1000')))
 
+    await staking.connect(user0).stakeToken(parseEther('1000'))
+    
+    expect(await fir.balanceOf(staking.address)).to.equal(parseEther('2000'))
+    expect(await fir.balanceOf(user0.address)).to.equal(parseEther('10000').sub(parseEther('2000')))
+
     console.log('stakeInfo', await staking.stakes(user0.address))
   })
 
@@ -61,6 +65,7 @@ describe('FirVerseStake2', function () {
     await staking.connect(user0).redeemNft()
     await staking.connect(user0).redeemToken()
 
+    await expect(staking.connect(user0).stakeToken(parseEther('1000'))).to.be.revertedWith("Can not stake")
     await expect(staking.connect(user0).redeemNft()).to.be.revertedWith('Already redeemed')
     await expect(staking.connect(user0).redeemToken()).to.be.revertedWith('Already redeemed')
 
