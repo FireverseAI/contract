@@ -94,7 +94,6 @@ contract FirVerseStake2 is ERC721Holder, Ownable2Step, ReentrancyGuard {
         vboxNFT.safeTransferFrom(address(this), user, s.nftId);
         
         s.nftRedeemed = true;
-        s.nftId = 0;
         stakes[user] = s;
 
         emit NftRedeemed(user, s.nftId);
@@ -107,7 +106,6 @@ contract FirVerseStake2 is ERC721Holder, Ownable2Step, ReentrancyGuard {
         firToken.safeTransfer(user, s.amount);
 
         s.tokenRedeemed = true;
-        s.amount = 0;
         stakes[user] = s;
 
         emit TokenRedeemed(user, s.amount);
